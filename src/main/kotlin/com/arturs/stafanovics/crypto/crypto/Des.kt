@@ -209,7 +209,7 @@ class Des(val asBinary: Boolean = false) {
     private fun BitSet.circularShift() {
         val leftCarry= this[55]
         val rightCarry = this[27]
-        val shifted = (this.toLongArray()[0]) shl 1
+        val shifted = ((this.toLongArray()[0]) shl 1) and 0xFFFFFFFFFFFFFF
         val bs = BitSet.valueOf(longArrayOf(shifted))
         bs[0] = rightCarry
         bs[28] = leftCarry
@@ -251,6 +251,7 @@ class Des(val asBinary: Boolean = false) {
         permutations.forEachIndexed { ind, perm -> newBs[ind] = bitSet[size - perm] }
     }
 
+    @ExperimentalUnsignedTypes
     private fun BitSet.toHexString() = this.toBinaryString().toULong(2).toString(16).padStart(16, '0')
     private fun BitSet.toBinaryString(): String {
         val sb = StringBuilder(64)
@@ -258,13 +259,14 @@ class Des(val asBinary: Boolean = false) {
         return sb.reversed().toString().padStart(64, '0')
     }
     private fun Boolean.toInt() = if (this) 1 else 0
-    private fun Long.getNthBit(pos: Int) = (this shr pos) and 0b1L
 }
 
 
 fun main() {
-    val key = "11110000110011001010101011110101010101100110011110001111"
-    val message = "0000000100100011010001010110011110001001101010111100110111101111"
+    print("Key: ")
+    val key = readLine()!!
+    print("Message: ")
+    val message = readLine()!!
     val des = Des(asBinary = false)
     val encryptedMessage = des.encrypt(key, message)
     val decrypted = des.decrypt(key, encryptedMessage)
