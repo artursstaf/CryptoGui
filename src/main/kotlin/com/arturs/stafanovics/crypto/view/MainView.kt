@@ -9,8 +9,6 @@ import javafx.collections.FXCollections
 import javafx.geometry.Insets
 import javafx.scene.control.TableView
 import tornadofx.*
-import java.util.*
-
 
 class MainView : View("Data Encryption Standard") {
     private val key = SimpleStringProperty().apply { value = "F0CCAAF556678F" }

@@ -1,5 +1,6 @@
 package com.arturs.stafanovics.crypto.crypto
 
+import com.arturs.stafanovics.crypto.toHexString
 import java.lang.NumberFormatException
 import java.util.*
 
@@ -116,7 +117,7 @@ class Des {
 
     private fun runRounds(k: String, m: String, outputBinary: Boolean, revKeys: Boolean = false): String {
         history.clear()
-        history.add(DesState("Initial", getBitSet(k), getBitSet(m)))
+        history.add(DesState("Initial values", getBitSet(k), getBitSet(m)))
 
         val keys = getSubKeys(getBitSet(k)).let {
             if (!revKeys) it else it.reversed()
@@ -253,6 +254,20 @@ fun main() {
     print("Message: ")
     val message = readLine()!!
     val des = Des()
+
     val encryptedMessage = des.encrypt(key, message)
-    val decrypted = des.decrypt(key, encryptedMessage)
+    println("Encrpyted message: $encryptedMessage")
+    println("Encryption steps: ")
+    println("Stage | Key | Message")
+    des.history.forEach {
+        println("${it.stage} | ${it.key?.toHexString() ?: "" } | ${it.mes.toHexString()}")
+    }
+
+    println()
+    println("Decrypted message: ${des.decrypt(key, encryptedMessage)}")
+    println("Decryption steps: ")
+    println("Stage | Key | Message")
+    des.history.forEach {
+        println("${it.stage} | ${it.key?.toHexString() ?: "" } | ${it.mes.toHexString()}")
+    }
 }
