@@ -4,7 +4,9 @@ import java.lang.NumberFormatException
 import java.util.*
 
 
-class Des(val asBinary: Boolean = false) {
+data class DesState(val stage: String, val key: BitSet?, val mes: BitSet)
+
+class Des {
 
     companion object {
         private val circularShiftTable = intArrayOf(1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1)
@@ -106,14 +108,15 @@ class Des(val asBinary: Boolean = false) {
         private val newLine =  System.getProperty("line.separator")
     }
 
-    var outputMessage = ""
+    val history = mutableListOf<DesState>()
 
-    fun encrypt(key: String, message: String) = runRounds(key, message, revKeys = false)
+    fun encrypt(key: String, message: String, outputBinary: Boolean = false) = runRounds(key, message, outputBinary, revKeys = false)
 
-    fun decrypt(key: String, message: String) = runRounds(key, message, revKeys = true)
+    fun decrypt(key: String, message: String, outputBinary: Boolean = false) = runRounds(key, message, outputBinary, revKeys = true)
 
-    private fun runRounds(k: String, m: String, revKeys: Boolean = false): String {
-        printInitialSetup(revKeys, k, m)
+    private fun runRounds(k: String, m: String, outputBinary: Boolean, revKeys: Boolean = false): String {
+        history.clear()
+        history.add(DesState("Initial", getBitSet(k), getBitSet(m)))
 
         val keys = getSubKeys(getBitSet(k)).let {
             if (!revKeys) it else it.reversed()
@@ -121,40 +124,23 @@ class Des(val asBinary: Boolean = false) {
 
         var message = getBitSet(m)
         message = message.initialPermutation()
-        var (left, right) = message.get(32, 64) to message.get(0, 32)
+        history.add(DesState("Initial permutation", null, message))
 
+        var (left, right) = message.get(32, 64) to message.get(0, 32)
         for (round in 0 .. 15){
-            printRound(round, keys[round], combineBitSets(left, right))
             val newLeftRight = performRound(keys[round], left, right)
             left = newLeftRight.first
             right = newLeftRight.second
+            history.add(DesState("Round ${round + 1}", keys[round], combineBitSets(left, right)))
         }
 
         // swap before final permutation
         message = combineBitSets(left = right, right = left)
+        history.add(DesState("Swap", null, message))
 
-        return message.finalPermutation().let {
-            if (asBinary) it.toBinaryString() else it.toHexString()
-        }.also {
-            outputMessage += ("Final message: $it")
-        }
-    }
-
-    private fun printInitialSetup(revKeys: Boolean, k: String, message: String) {
-        outputMessage = ""
-        outputMessage += ("Running ${if (!revKeys) "encryption" else "decryption"}") + newLine
-        outputMessage += ("Initial key: ${getBitSet(k).let { if (asBinary) it.toBinaryString() else it.toHexString()
-        }}")
-        outputMessage += (" | Initial message: ${getBitSet(message).let {
-            if (asBinary) it.toBinaryString() else it.toHexString()
-        }}") + newLine
-    }
-
-    private fun printRound(round: Int, keys: BitSet, message: BitSet) {
-        outputMessage += ("Round: ${round + 1} | SubKey: ${keys.let {
-            if (asBinary) it.toBinaryString() else it.toHexString() }} | ")
-        outputMessage += ("Message : ${message.let {
-            if (asBinary) it.toBinaryString() else it.toHexString() }}") + newLine
+        message = message.finalPermutation()
+        history.add(DesState("Final permutation", null, message))
+        return if(outputBinary) message.toBinaryString() else message.toHexString()
     }
 
     private fun combineBitSets(left: BitSet, right: BitSet): BitSet {
@@ -251,9 +237,8 @@ class Des(val asBinary: Boolean = false) {
         permutations.forEachIndexed { ind, perm -> newBs[ind] = bitSet[size - perm] }
     }
 
-    @ExperimentalUnsignedTypes
-    private fun BitSet.toHexString() = this.toBinaryString().toULong(2).toString(16).padStart(16, '0')
-    private fun BitSet.toBinaryString(): String {
+    fun BitSet.toHexString() = this.toBinaryString().toULong(2).toString(16).padStart(16, '0')
+    fun BitSet.toBinaryString(): String {
         val sb = StringBuilder(64)
         (0 .. 63).forEach { sb.append( if(this[it]) '1' else '0') }
         return sb.reversed().toString().padStart(64, '0')
@@ -267,7 +252,7 @@ fun main() {
     val key = readLine()!!
     print("Message: ")
     val message = readLine()!!
-    val des = Des(asBinary = false)
+    val des = Des()
     val encryptedMessage = des.encrypt(key, message)
     val decrypted = des.decrypt(key, encryptedMessage)
 }

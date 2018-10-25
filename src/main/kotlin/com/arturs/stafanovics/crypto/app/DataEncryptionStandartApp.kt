@@ -8,8 +8,10 @@ import tornadofx.*
 
 class DataEncryptionStandartApp: App(MainView::class, Styles::class){
     override fun start(stage: Stage) {
-        stage.minHeight = 350.0
-        stage.minWidth = 400.0
+        stage.minHeight = 300.0
+        stage.minHeight = 300.0
+        stage.height = 725.0
+        stage.width = 800.0
         super.start(stage)
     }
 
