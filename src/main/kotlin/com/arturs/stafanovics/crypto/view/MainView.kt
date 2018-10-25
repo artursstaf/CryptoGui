@@ -48,7 +48,7 @@ class MainView : View("Data Encryption Standard") {
                         des = if (isSelected) Des(asBinary = true) else Des(asBinary = false)
                         when (lastAction) {
                             "enc" -> encrypt()
-                            "dec" -> Decrypt()
+                            "dec" -> decrypt()
                         }
 
                     }
@@ -63,9 +63,9 @@ class MainView : View("Data Encryption Standard") {
                         marginRight = 10.0
                     }
                 }
-                button("Decrypt") {
+                button("decrypt") {
                     action {
-                        Decrypt()
+                        decrypt()
                     }
                     vboxConstraints {
                         marginRight = 10.0
@@ -82,7 +82,7 @@ class MainView : View("Data Encryption Standard") {
         }
     }
 
-    private fun Decrypt() {
+    private fun decrypt() {
         lastAction = "dec"
         runAsync {
             output.value = getDesOutput(false)
