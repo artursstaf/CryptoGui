@@ -11,8 +11,8 @@ import javafx.scene.control.TableView
 import tornadofx.*
 
 class MainView : View("Data Encryption Standard") {
-    private val key = SimpleStringProperty().apply { value = "F0CCAAF556678F" }
-    private val message = SimpleStringProperty().apply { value = "0123456789ABCDEF" }
+    private val keyProp = SimpleStringProperty().apply { value = "F0CCAAF556678F" }
+    private val messageProp = SimpleStringProperty().apply { value = "0123456789ABCDEF" }
     private val output = SimpleStringProperty()
     private val tableData = FXCollections.observableArrayList<DesState>()
     private val des = Des()
@@ -25,10 +25,10 @@ class MainView : View("Data Encryption Standard") {
             top = form {
                 fieldset {
                     field("Key (binary or hex):") {
-                        textfield(key)
+                        textfield(keyProp)
                     }
                     field("Message (binary or hex):") {
-                        textfield(message)
+                        textfield(messageProp)
                     }
                 }
             }
@@ -38,7 +38,7 @@ class MainView : View("Data Encryption Standard") {
                     label("Output: ")
                     textfield(output) {
                         isEditable = false
-                        minWidth = 550.0
+                        minWidth = 600.0
                     }
                     vboxConstraints {
                         marginLeft = 10.0
@@ -51,16 +51,17 @@ class MainView : View("Data Encryption Standard") {
                     readonlyColumn("Stage", DesState::stage) {
                         isSortable = false
                     }
-                    readonlyColumn("Key", DesState::key){
-                        isSortable = false
-                    }.cellFormat {
-                        text = if (binaryOutput) it?.toBinaryString() ?: ""
-                        else it?.toHexString() ?: ""
-                    }
                     readonlyColumn("Message", DesState::mes){
                         isSortable = false
                     }.cellFormat {
-                        text = if (binaryOutput) it?.toBinaryString() else it.toHexString()
+                        text = if (binaryOutput) it.toBinaryString().replace("(.{8})".toRegex(), "$1 ")
+                        else it.toHexString()
+                    }
+                    readonlyColumn("Key", DesState::key){
+                        isSortable = false
+                    }.cellFormat {
+                        text = if (binaryOutput) it?.toBinaryString()?.replace("(.{8})".toRegex(), "$1 ") ?: ""
+                        else it?.toHexString() ?: ""
                     }
                     columnResizePolicy = SmartResize.POLICY
                     vboxConstraints {
@@ -108,33 +109,31 @@ class MainView : View("Data Encryption Standard") {
 
     private fun encrypt() {
         lastAction = "enc"
-        runAsync {
-            output.value = getDesOutput(true)
-            tableData.clear()
-            tableData.setAll(des.history)
-            SmartResize.POLICY.requestResize(table)
-
-        }
+        output.value = getDesOutput(true)
+        tableData.clear()
+        tableData.setAll(des.history)
+        SmartResize.POLICY.requestResize(table)
     }
 
     private fun decrypt() {
         lastAction = "dec"
-        runAsync {
-            output.value = getDesOutput(false)
-            tableData.clear()
-            tableData.setAll(des.history)
-            SmartResize.POLICY.requestResize(table)
-        }
+        output.value = getDesOutput(false)
+        tableData.clear()
+        tableData.setAll(des.history)
+        SmartResize.POLICY.requestResize(table)
     }
 
     private fun getDesOutput(encrypt: Boolean = true) = try {
-        if (key.value.length != 14 && key.value.length != 54) throw Exception(
-                "Key must be of length - binary 54 or hexadecimal 14"
-        )
-        if (message.value.length != 16 && message.value.length != 64) throw Exception(
-                "Message must be of length - binary 64 or hexadecimal 16"
-        )
-        if (encrypt) des.encrypt(key.value, message.value, binaryOutput) else des.decrypt(key.value, message.value, binaryOutput)
+        val key = keyProp.value.replace(" ", "")
+        val mes = messageProp.value.replace(" ", "")
+
+        if (key.length != 14 && key.length != 54)
+            throw Exception("Key must be of length - binary 54 or hexadecimal 14")
+        if (mes.length != 16 && mes.length != 64)
+            throw Exception("Message must be of length - binary 64 or hexadecimal 16")
+
+        val output = if (encrypt) des.encrypt(key, mes) else des.decrypt(key, mes)
+        if(!binaryOutput) output else output.toULong(16).toString(2).padStart(64, '0').replace("(.{8})".toRegex(), "$1 ")
     } catch (e: Exception) {
         e.message
     }

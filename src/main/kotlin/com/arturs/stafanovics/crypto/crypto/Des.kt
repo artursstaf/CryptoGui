@@ -1,14 +1,13 @@
 package com.arturs.stafanovics.crypto.crypto
 
-import com.arturs.stafanovics.crypto.toHexString
 import java.lang.NumberFormatException
 import java.util.*
-
 
 data class DesState(val stage: String, val key: BitSet?, val mes: BitSet)
 
 class Des {
 
+    // All permutation and substitution tables
     companion object {
         private val circularShiftTable = intArrayOf(1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1)
 
@@ -106,16 +105,16 @@ class Des {
                         34, 2, 42, 10, 50, 18, 58, 26,
                         33, 1, 41, 9, 49, 17, 57, 25
                 ).reversedArray()
-        private val newLine =  System.getProperty("line.separator")
     }
 
     val history = mutableListOf<DesState>()
 
-    fun encrypt(key: String, message: String, outputBinary: Boolean = false) = runRounds(key, message, outputBinary, revKeys = false)
+    fun encrypt(key: String, message: String) = runRounds(key, message, revKeys = false)
 
-    fun decrypt(key: String, message: String, outputBinary: Boolean = false) = runRounds(key, message, outputBinary, revKeys = true)
+    // For decryption use reversed keys
+    fun decrypt(key: String, message: String) = runRounds(key, message, revKeys = true)
 
-    private fun runRounds(k: String, m: String, outputBinary: Boolean, revKeys: Boolean = false): String {
+    private fun runRounds(k: String, m: String, revKeys: Boolean): String {
         history.clear()
         history.add(DesState("Initial values", getBitSet(k), getBitSet(m)))
 
@@ -127,8 +126,9 @@ class Des {
         message = message.initialPermutation()
         history.add(DesState("Initial permutation", null, message))
 
+        // Split message to left and right parts each 32 bit
         var (left, right) = message.get(32, 64) to message.get(0, 32)
-        for (round in 0 .. 15){
+        for (round in 0..15) {
             val newLeftRight = performRound(keys[round], left, right)
             left = newLeftRight.first
             right = newLeftRight.second
@@ -137,64 +137,64 @@ class Des {
 
         // swap before final permutation
         message = combineBitSets(left = right, right = left)
-        history.add(DesState("Swap", null, message))
+        history.add(DesState("Swap halves", null, message))
 
         message = message.finalPermutation()
         history.add(DesState("Final permutation", null, message))
-        return if(outputBinary) message.toBinaryString() else message.toHexString()
+        return message.toHexString()
     }
 
     private fun combineBitSets(left: BitSet, right: BitSet): BitSet {
-        val combined  = (left.toLongArray()[0] shl 32) or right.toLongArray()[0]
+        val combined = (left.toLongArray()[0] shl 32) or right.toLongArray()[0]
         return BitSet.valueOf(longArrayOf(combined))
     }
 
-    private fun getSubKeys(key: BitSet): List<BitSet>{
+
+    // Gets subkeys for each round
+    private fun getSubKeys(key: BitSet): List<BitSet> {
         val list = mutableListOf<BitSet>()
-        for(i in 0 .. 15){
+        for (i in 0..15) {
             key.keyShift(i)
             list.add(BitSet.valueOf(key.toLongArray()))
         }
         return list
     }
 
+    // Parse hex or binary string and return BitSet representation of it
     private fun getBitSet(str: String): BitSet {
-        var asLong = try {
+        val asLong = try {
             str.toULong(16)
-        }catch(e: NumberFormatException){
+        } catch (e: NumberFormatException) {
             str.toULong(2)
-        }
+        }.toLong()
 
-        val bitSet = BitSet(64)
-
-        (0 .. 63).forEach {
-            bitSet[it] = (asLong and 0b1u) == 1uL
-            asLong = asLong shr 1
-        }
-
-        return bitSet
+        return BitSet.valueOf(longArrayOf(asLong))
     }
 
+    // Run 1 DES round, on key and message halves, return new message halves
     private fun performRound(key: BitSet, left: BitSet, right: BitSet): Pair<BitSet, BitSet> {
         val fDRight = f(key.compressionPermutation(), right)
         left.xor(fDRight)
+        // Swap halves
         return right to left
     }
 
     private fun f(key: BitSet, right: BitSet): BitSet {
-        val expanded = right.expansionPermutation()
-        expanded.xor(key)
-        val sboxed = expanded.sBoxSubstition()
+        val expandedRight = right.expansionPermutation()
+        expandedRight.xor(key)
+        val sboxed = expandedRight.sBoxSubstition()
         return sboxed.pBoxPermutation()
     }
 
+    // Shift key bits, 1 or 2 times depending on round
     private fun BitSet.keyShift(round: Int) {
         this.circularShift()
-        if(circularShiftTable[round] == 2) this.circularShift()
+        if (circularShiftTable[round] == 2) this.circularShift()
     }
 
+    // Do left circular shift on two key halves - each 28 bit
     private fun BitSet.circularShift() {
-        val leftCarry= this[55]
+        val leftCarry = this[55]
         val rightCarry = this[27]
         val shifted = ((this.toLongArray()[0]) shl 1) and 0xFFFFFFFFFFFFFF
         val bs = BitSet.valueOf(longArrayOf(shifted))
@@ -204,10 +204,12 @@ class Des {
         this.or(bs)
     }
 
+    // Do bit the substitution on a 32 bit set
     private fun BitSet.sBoxSubstition(): BitSet {
         val bs = BitSet(32)
-        for (whichSBox in 0 .. 7) {
+        for (whichSBox in 0..7) {
             val sBoxIndex = this.getSBoxIndex(whichSBox * 6)
+            // Retrieve substitution bits
             val bits = sBoxTable[whichSBox][sBoxIndex]
             bs.setSBoxBits(whichSBox, bits)
         }
@@ -222,31 +224,32 @@ class Des {
         }
     }
 
+    // Get index SBox substitution index
     private fun BitSet.getSBoxIndex(offset: Int): Int {
+        // 6th and 1st bit
         val row = (this[offset + 5].toInt() shl 1) + this[offset].toInt()
-        val column = (offset + 4 downTo offset + 1).fold( 0 ) { acc, ind -> (acc shl 1) + this[ind].toInt() }
-        return row * 16 +  column
+        // 5th down to 2nd bit
+        val column = (offset + 4 downTo offset + 1).fold(0) { acc, ind -> (acc shl 1) + this[ind].toInt() }
+        return row * 16 + column
     }
 
     private fun BitSet.finalPermutation() = performPermutation(this, finalPermutation, 64)
     private fun BitSet.initialPermutation() = performPermutation(this, initialPermutation, 64)
     private fun BitSet.pBoxPermutation() = performPermutation(this, pBoxTable, 32)
+    // Expand 32 bits to 48
     private fun BitSet.expansionPermutation() = performPermutation(this, expansionPermutationTable, 32)
+
+    // Compress 56 bits to 48
     private fun BitSet.compressionPermutation() = performPermutation(this, compressionPermutationTable, 56)
 
-    private fun performPermutation(bitSet: BitSet, permutations: IntArray, size: Int) = BitSet(size).also { newBs ->
+    private fun performPermutation(bitSet: BitSet, permutations: IntArray, size: Int) = BitSet(64).also { newBs ->
         permutations.forEachIndexed { ind, perm -> newBs[ind] = bitSet[size - perm] }
     }
 
-    fun BitSet.toHexString() = this.toBinaryString().toULong(2).toString(16).padStart(16, '0')
-    fun BitSet.toBinaryString(): String {
-        val sb = StringBuilder(64)
-        (0 .. 63).forEach { sb.append( if(this[it]) '1' else '0') }
-        return sb.reversed().toString().padStart(64, '0')
-    }
     private fun Boolean.toInt() = if (this) 1 else 0
 }
 
+fun BitSet.toHexString() = this.toLongArray()[0].toULong().toString(16).padStart(16, '0')
 
 fun main() {
     print("Key: ")
@@ -260,7 +263,7 @@ fun main() {
     println("Encryption steps: ")
     println("Stage | Key | Message")
     des.history.forEach {
-        println("${it.stage} | ${it.key?.toHexString() ?: "" } | ${it.mes.toHexString()}")
+        println("${it.stage} | ${it.key?.toHexString() ?: ""} | ${it.mes.toHexString()}")
     }
 
     println()
@@ -268,6 +271,6 @@ fun main() {
     println("Decryption steps: ")
     println("Stage | Key | Message")
     des.history.forEach {
-        println("${it.stage} | ${it.key?.toHexString() ?: "" } | ${it.mes.toHexString()}")
+        println("${it.stage} | ${it.key?.toHexString() ?: ""} | ${it.mes.toHexString()}")
     }
 }
