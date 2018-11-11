@@ -1,4 +1,4 @@
-package com.arturs.stafanovics.crypto.crypto
+package com.arturs.stafanovics.crypto.crypto.des
 
 import java.lang.NumberFormatException
 import java.util.*

@@ -1,7 +1,7 @@
 package com.arturs.stafanovics.crypto.view
 
-import com.arturs.stafanovics.crypto.crypto.Des
-import com.arturs.stafanovics.crypto.crypto.DesState
+import com.arturs.stafanovics.crypto.crypto.des.Des
+import com.arturs.stafanovics.crypto.crypto.des.DesState
 import com.arturs.stafanovics.crypto.toBinaryString
 import com.arturs.stafanovics.crypto.toHexString
 import javafx.beans.property.SimpleStringProperty
