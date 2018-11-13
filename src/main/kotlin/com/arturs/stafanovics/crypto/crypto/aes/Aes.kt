@@ -51,47 +51,56 @@ class Aes {
     val history = mutableListOf<AesState>()
 
     fun encrypt(key: String, message: String): String {
-        val message = getByteArray(message)
+        val message = getByteArray(message).toTwoDimensional()
         substitution(message)
         shiftRows(message)
-        return BitSet.valueOf(message).toHexString()
+        mixColumns(message)
+        return BitSet.valueOf(message.toOneDimensional()).toHexString()
     }
 
-    private fun shiftRows(message: ByteArray) {
-        val twoDim = message.toTwoDimensional()
-        (1..3).forEach { twoDim[it] = twoDim[it].shiftRow(it) }
-        val oneDim = twoDim.toOneDimensional()
-        oneDim.copyInto(message)
-    }
+
+    private fun mixColumns(arr: Array<ByteArray>) =
+            (0..3).forEach { column ->
+                arr[0][column] = (2.toByte() galoisMulti arr[0][column]) xor (3.toByte() galoisMulti arr[1][column]) xor arr[2][column] xor arr[3][column]
+                arr[1][column] = arr[0][column] xor (2.toByte() galoisMulti arr[1][column]) xor (3.toByte() galoisMulti arr[2][column]) xor arr[3][column]
+                arr[2][column] = arr[0][column] xor arr[1][column] xor (2.toByte() galoisMulti arr[2][column]) xor (3.toByte() galoisMulti arr[3][column])
+                arr[3][column] = (3.toByte() galoisMulti arr[0][column]) xor arr[1][column] xor arr[2][column] xor (2.toByte() galoisMulti arr[3][column])
+            }
+
+    private fun shiftRows(message: Array<ByteArray>) =
+            (1..3).forEach { message[it] = message[it].shiftRow(it).copyInto(message[it]) }
 
     private fun ByteArray.shiftRow(count: Int) = (this.drop(count) + this.take(count)).toByteArray()
 
-    private fun substitution(stateArray: ByteArray) {
-        stateArray.forEachIndexed { index, elem ->
-            val row = elem.toInt() shr 4 and 0b1111
-            val col = elem.toInt() and 0b1111
-            stateArray[index] = sBox[row * 16 + col].toByte()
+    private fun substitution(stateArray: Array<ByteArray>) {
+        stateArray.forEachIndexed { rowInd, row ->
+            row.forEachIndexed { colInd, elem ->
+                val sBoxRow = elem.toInt() shr 4 and 0b1111
+                val sBoxCol = elem.toInt() and 0b1111
+                stateArray[rowInd][colInd] = sBox[sBoxRow * 16 + sBoxCol].toByte()
+            }
+
         }
     }
 
-    private infix fun Byte.galoisMult(by: Byte): Byte {
-        var currXtime = this.xtime()
-        val xtimesArr = ByteArray(7) {
-            val toReturn = currXtime
-            currXtime = currXtime.xtime()
+    private infix fun Byte.galoisMulti(by: Byte): Byte {
+        var currXTime = this.xTime()
+        val xTimesArr = ByteArray(7) {
+            val toReturn = currXTime
+            currXTime = currXTime.xTime()
             toReturn
         }
 
         var sum = if (by.toInt() and 1 == 1) this else 0
         (1..7).forEach {
             if ((by.toInt() ushr it) and 1 == 1) {
-                sum = sum xor xtimesArr[it - 1]
+                sum = sum xor xTimesArr[it - 1]
             }
         }
         return sum
     }
 
-    private fun Byte.xtime() = ((this.toInt() shl 1) xor ((this.toInt() ushr 7) and 0x1b)).toByte()
+    private fun Byte.xTime() = ((this.toInt() shl 1) xor ((this.toInt() ushr 7) and 0x1b)).toByte()
 
     private fun ByteArray.toTwoDimensional() = Array(4) { row ->
         ByteArray(4) { col -> this[row + 4 * col] }
@@ -99,8 +108,6 @@ class Aes {
 
     private fun Array<ByteArray>.toOneDimensional() = ByteArray(16) { this[it / 4][it % 4] }
 
-
-    // Parse hex string and return BitSet representation of it
     private fun getByteArray(str: String): ByteArray {
         val left = str.substring(0..15).toULong(16).toLong()
         val right = str.substring(16..31).toULong(16).toLong()
