@@ -2,6 +2,7 @@ package com.arturs.stafanovics.crypto.crypto.aes
 
 import java.util.*
 import kotlin.experimental.xor
+import kotlin.system.measureTimeMillis
 
 data class AesState(val stage: String, val key: BitSet?, val mes: BitSet)
 
@@ -57,7 +58,7 @@ class Aes {
 
         addRoundKey(mesState, keyState[0])
 
-        for(i in 1..9){
+        for (i in 1..9) {
             substitution(mesState)
             shiftRows(mesState)
             mixColumns(mesState)
@@ -71,14 +72,14 @@ class Aes {
         return getHexString(mesState)
     }
 
-    fun decrypt(key: String, message: String): String{
+    fun decrypt(key: String, message: String): String {
 
 
         return ""
     }
 
     private fun getHexString(mesState: Array<ByteArray>) =
-        BitSet.valueOf(mesState.toOneDimensional().reversedArray()).toHexString()
+            BitSet.valueOf(mesState.toOneDimensional().reversedArray()).toHexString()
 
 
     private fun addRoundKey(mes: Array<ByteArray>, key: Array<ByteArray>) {
@@ -141,7 +142,6 @@ class Aes {
         }
     }
 
-
     private fun ByteArray.shiftRow(count: Int) = (this.drop(count) + this.take(count)).toByteArray()
 
     private fun substitution(stateArray: Array<ByteArray>) {
@@ -186,7 +186,7 @@ class Aes {
     private fun getByteArray(str: String): ByteArray {
         val left = str.substring(0..15).toULong(16).toLong()
         val right = str.substring(16..31).toULong(16).toLong()
-        return  BitSet.valueOf(longArrayOf(right, left)).toByteArray().copyInto(ByteArray(16)).reversedArray()
+        return BitSet.valueOf(longArrayOf(right, left)).toByteArray().copyInto(ByteArray(16)).reversedArray()
     }
 }
 
@@ -197,9 +197,10 @@ fun BitSet.toHexString() = this.toLongArray().foldRight("") { elem, res ->
 
 @ExperimentalUnsignedTypes
 fun main() {
+
     val message = "00112233445566778899aabbccddeeff"
     val key = "000102030405060708090a0b0c0d0e0f"
     val aes = Aes()
     val encryptedMessage = aes.encrypt(key, message)
-    val x = 7
+
 }
