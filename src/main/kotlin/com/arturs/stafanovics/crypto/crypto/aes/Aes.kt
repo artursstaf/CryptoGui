@@ -2,7 +2,6 @@ package com.arturs.stafanovics.crypto.crypto.aes
 
 import java.util.*
 import kotlin.experimental.xor
-import kotlin.system.measureTimeMillis
 
 data class AesState(val stage: String, val key: BitSet?, val mes: BitSet)
 
@@ -54,28 +53,67 @@ class Aes {
 
     fun encrypt(key: String, message: String): String {
         val mesState = getByteArray(message).toTwoDimensional()
-        val keyState = getSubKeys(getByteArray(key).toTwoDimensional())
+        val subKeys = getSubKeys(getByteArray(key).toTwoDimensional())
 
-        addRoundKey(mesState, keyState[0])
+        addRoundKey(mesState, subKeys[0])
 
         for (i in 1..9) {
             substitution(mesState)
             shiftRows(mesState)
             mixColumns(mesState)
-            addRoundKey(mesState, keyState[i])
+            addRoundKey(mesState, subKeys[i])
         }
 
         substitution(mesState)
         shiftRows(mesState)
-        addRoundKey(mesState, keyState[10])
+        addRoundKey(mesState, subKeys[10])
 
         return getHexString(mesState)
     }
 
     fun decrypt(key: String, message: String): String {
+        val mesState = getByteArray(message).toTwoDimensional()
+        val subKeys = getSubKeys(getByteArray(key).toTwoDimensional()).reversed()
 
+        addRoundKey(mesState, subKeys[0])
 
-        return ""
+        for (i in 1..9) {
+            invShiftRows(mesState)
+            invSubstitution(mesState)
+            addRoundKey(mesState, subKeys[i])
+            invMixColumns(mesState)
+        }
+
+        invShiftRows(mesState)
+        invSubstitution(mesState)
+        addRoundKey(mesState, subKeys[10])
+
+        return getHexString(mesState)
+    }
+
+    private fun invShiftRows(message: Array<ByteArray>) {
+        for (i in 0..3) {
+            message[i] = message[i].invShiftRow(i).copyInto(message[i])
+        }
+    }
+
+    private fun invMixColumns(arr: Array<ByteArray>) {
+        val new = Array(4) { ByteArray(4) }
+        for (column in 0..3) {
+            new[0][column] = (arr[0][column] galoisMulti 0x0e) xor (arr[1][column] galoisMulti 0x0b) xor (arr[2][column] galoisMulti 0x0d) xor (arr[3][column] galoisMulti 0x09)
+            new[1][column] = (arr[0][column] galoisMulti 0x09) xor (arr[1][column] galoisMulti 0x0e) xor (arr[2][column] galoisMulti 0x0b) xor (arr[3][column] galoisMulti 0x0d)
+            new[2][column] = (arr[0][column] galoisMulti 0x0d) xor (arr[1][column] galoisMulti 0x09) xor (arr[2][column] galoisMulti 0x0e) xor (arr[3][column] galoisMulti 0x0b)
+            new[3][column] = (arr[0][column] galoisMulti 0x0b) xor (arr[1][column] galoisMulti 0x0d) xor (arr[2][column] galoisMulti 0x09) xor (arr[3][column] galoisMulti 0x0e)
+        }
+        new.copyInto(arr)
+    }
+
+    private fun invSubstitution(mesState: Array<ByteArray>) {
+        mesState.forEachIndexed { rowInd, row ->
+            row.forEachIndexed { colInd, elem ->
+                mesState[rowInd][colInd] = getSubstitutionValue(elem, invSbox)
+            }
+        }
     }
 
     private fun getHexString(mesState: Array<ByteArray>) =
@@ -115,7 +153,7 @@ class Aes {
         }
         // SubBytes
         for (i in 0..3) {
-            subKey[i][0] = getSubstitutionValue(subKey[i][0])
+            subKey[i][0] = getSubstitutionValue(subKey[i][0], sBox)
         }
         // XOR first word with prev key first word
         for (i in 0..3) {
@@ -143,19 +181,20 @@ class Aes {
     }
 
     private fun ByteArray.shiftRow(count: Int) = (this.drop(count) + this.take(count)).toByteArray()
+    private fun ByteArray.invShiftRow(count: Int) = (this.takeLast(count) + this.dropLast(count)).toByteArray()
 
     private fun substitution(stateArray: Array<ByteArray>) {
         stateArray.forEachIndexed { rowInd, row ->
             row.forEachIndexed { colInd, elem ->
-                stateArray[rowInd][colInd] = getSubstitutionValue(elem)
+                stateArray[rowInd][colInd] = getSubstitutionValue(elem, sBox)
             }
         }
     }
 
-    private fun getSubstitutionValue(elem: Byte): Byte {
+    private fun getSubstitutionValue(elem: Byte, box: IntArray): Byte {
         val row = elem.toInt() shr 4 and 0b1111
         val col = elem.toInt() and 0b1111
-        return sBox[row * 16 + col].toByte()
+        return box[row * 16 + col].toByte()
     }
 
     private infix fun Byte.galoisMulti(by: Byte): Byte {
@@ -197,10 +236,11 @@ fun BitSet.toHexString() = this.toLongArray().foldRight("") { elem, res ->
 
 @ExperimentalUnsignedTypes
 fun main() {
-
     val message = "00112233445566778899aabbccddeeff"
     val key = "000102030405060708090a0b0c0d0e0f"
     val aes = Aes()
     val encryptedMessage = aes.encrypt(key, message)
-
+    val decrypted = aes.decrypt(key, encryptedMessage)
+    println(encryptedMessage)
+    println(decrypted)
 }
