@@ -3,7 +3,7 @@ package com.arturs.stafanovics.crypto.crypto.aes
 import java.util.*
 import kotlin.experimental.xor
 
-data class AesState(val stage: String, val key: BitSet?, val mes: BitSet)
+data class AesState(val stage: String, val key: String, val mes: String)
 
 @ExperimentalUnsignedTypes
 class Aes {
@@ -54,19 +54,24 @@ class Aes {
     fun encrypt(key: String, message: String): String {
         val mesState = getByteArray(message).toTwoDimensional()
         val subKeys = getSubKeys(getByteArray(key).toTwoDimensional())
+        history.clear()
+        history.add(AesState("Initial", key, message))
 
         addRoundKey(mesState, subKeys[0])
+        history.add(AesState("Add round key", getHexString(subKeys[0]), getHexString(mesState)))
 
         for (i in 1..9) {
             substitution(mesState)
             shiftRows(mesState)
             mixColumns(mesState)
             addRoundKey(mesState, subKeys[i])
+            history.add(AesState("Round $i", getHexString(subKeys[i]), getHexString(mesState)))
         }
 
         substitution(mesState)
         shiftRows(mesState)
         addRoundKey(mesState, subKeys[10])
+        history.add(AesState("Round 10", getHexString(subKeys[10]), getHexString(mesState)))
 
         return getHexString(mesState)
     }
@@ -74,19 +79,24 @@ class Aes {
     fun decrypt(key: String, message: String): String {
         val mesState = getByteArray(message).toTwoDimensional()
         val subKeys = getSubKeys(getByteArray(key).toTwoDimensional()).reversed()
+        history.clear()
+        history.add(AesState("Initial", key, message))
 
         addRoundKey(mesState, subKeys[0])
+        history.add(AesState("Add round key", getHexString(subKeys[0]), getHexString(mesState)))
 
         for (i in 1..9) {
             invShiftRows(mesState)
             invSubstitution(mesState)
             addRoundKey(mesState, subKeys[i])
             invMixColumns(mesState)
+            history.add(AesState("Round $i", getHexString(subKeys[i]), getHexString(mesState)))
         }
 
         invShiftRows(mesState)
         invSubstitution(mesState)
         addRoundKey(mesState, subKeys[10])
+        history.add(AesState("Round 10", getHexString(subKeys[10]), getHexString(mesState)))
 
         return getHexString(mesState)
     }
@@ -234,11 +244,26 @@ fun BitSet.toHexString() = this.toLongArray().foldRight("") { elem, res ->
 
 @ExperimentalUnsignedTypes
 fun main() {
-    val message = "00112233445566778899aabbccddeeff"
-    val key = "000102030405060708090a0b0c0d0e0f"
+    print("Key: ")
+    val key = readLine()!!
+    print("Message: ")
+    val message = readLine()!!
     val aes = Aes()
+
     val encryptedMessage = aes.encrypt(key, message)
+    println("Encrpyted message: $encryptedMessage")
+    println("Encryption steps: ")
+    println("Stage | Message | Key")
+    aes.history.forEach {
+        println("${it.stage} | ${it.mes} | ${it.key}")
+    }
+
     val decrypted = aes.decrypt(key, encryptedMessage)
-    println(encryptedMessage)
-    println(decrypted)
+    println()
+    println("Decrypted message: $decrypted")
+    println("Decryption steps: ")
+    println("Stage | Message | Key")
+    aes.history.forEach {
+        println("${it.stage} | ${it.mes} | ${it.key}")
+    }
 }
