@@ -91,49 +91,11 @@ class Aes {
         return getHexString(mesState)
     }
 
-    private fun invShiftRows(message: Array<ByteArray>) {
-        for (i in 0..3) {
-            message[i] = message[i].invShiftRow(i).copyInto(message[i])
-        }
-    }
-
-    private fun invMixColumns(arr: Array<ByteArray>) {
-        val new = Array(4) { ByteArray(4) }
-        for (column in 0..3) {
-            new[0][column] = (arr[0][column] galoisMulti 0x0e) xor (arr[1][column] galoisMulti 0x0b) xor (arr[2][column] galoisMulti 0x0d) xor (arr[3][column] galoisMulti 0x09)
-            new[1][column] = (arr[0][column] galoisMulti 0x09) xor (arr[1][column] galoisMulti 0x0e) xor (arr[2][column] galoisMulti 0x0b) xor (arr[3][column] galoisMulti 0x0d)
-            new[2][column] = (arr[0][column] galoisMulti 0x0d) xor (arr[1][column] galoisMulti 0x09) xor (arr[2][column] galoisMulti 0x0e) xor (arr[3][column] galoisMulti 0x0b)
-            new[3][column] = (arr[0][column] galoisMulti 0x0b) xor (arr[1][column] galoisMulti 0x0d) xor (arr[2][column] galoisMulti 0x09) xor (arr[3][column] galoisMulti 0x0e)
-        }
-        new.copyInto(arr)
-    }
-
-    private fun invSubstitution(mesState: Array<ByteArray>) {
-        mesState.forEachIndexed { rowInd, row ->
-            row.forEachIndexed { colInd, elem ->
-                mesState[rowInd][colInd] = getSubstitutionValue(elem, invSbox)
-            }
-        }
-    }
-
-    private fun getHexString(mesState: Array<ByteArray>) =
-            BitSet.valueOf(mesState.toOneDimensional().reversedArray()).toHexString()
-
-
-    private fun addRoundKey(mes: Array<ByteArray>, key: Array<ByteArray>) {
-        for (i in 0..3) {
-            for (y in 0..3) {
-                mes[i][y] = mes[i][y] xor key[i][y]
-            }
-        }
-    }
-
-    private fun getSubKeys(keyState: Array<ByteArray>) = mutableListOf(keyState).also { list ->
+    private fun getSubKeys(parentKey: Array<ByteArray>) = mutableListOf(parentKey).also { list ->
         for (i in 1..10) {
             list.add(getSubKey(list[i - 1], i))
         }
     }
-
 
     private fun getSubKey(previous: Array<ByteArray>, index: Int): Array<ByteArray> {
         val subKey = Array(4) { ByteArray(4) }
@@ -163,30 +125,63 @@ class Aes {
         subKey[0][0] = subKey[0][0] xor rCon[index - 1]
     }
 
+    private fun addRoundKey(mes: Array<ByteArray>, key: Array<ByteArray>) {
+        for (i in 0..3) {
+            for (y in 0..3) {
+                mes[i][y] = mes[i][y] xor key[i][y]
+            }
+        }
+    }
+
     private fun mixColumns(arr: Array<ByteArray>) {
         val new = Array(4) { ByteArray(4) }
         for (column in 0..3) {
-            new[0][column] = (2.toByte() galoisMulti arr[0][column]) xor (3.toByte() galoisMulti arr[1][column]) xor arr[2][column] xor arr[3][column]
-            new[1][column] = arr[0][column] xor (2.toByte() galoisMulti arr[1][column]) xor (3.toByte() galoisMulti arr[2][column]) xor arr[3][column]
-            new[2][column] = arr[0][column] xor arr[1][column] xor (2.toByte() galoisMulti arr[2][column]) xor (3.toByte() galoisMulti arr[3][column])
-            new[3][column] = (3.toByte() galoisMulti arr[0][column]) xor arr[1][column] xor arr[2][column] xor (2.toByte() galoisMulti arr[3][column])
+            new[0][column] = (arr[0][column] galoisMulti 2) xor (arr[1][column] galoisMulti 3) xor arr[2][column] xor arr[3][column]
+            new[1][column] = arr[0][column] xor (arr[1][column] galoisMulti 2) xor (arr[2][column] galoisMulti 3) xor arr[3][column]
+            new[2][column] = arr[0][column] xor arr[1][column] xor (arr[2][column] galoisMulti 2) xor (arr[3][column] galoisMulti 3)
+            new[3][column] = (arr[0][column] galoisMulti 3) xor arr[1][column] xor arr[2][column] xor (arr[3][column] galoisMulti 2)
         }
         new.copyInto(arr)
     }
 
-    private fun shiftRows(message: Array<ByteArray>) {
+    private fun invMixColumns(arr: Array<ByteArray>) {
+        val new = Array(4) { ByteArray(4) }
+        for (column in 0..3) {
+            new[0][column] = (arr[0][column] galoisMulti 0x0e) xor (arr[1][column] galoisMulti 0x0b) xor (arr[2][column] galoisMulti 0x0d) xor (arr[3][column] galoisMulti 0x09)
+            new[1][column] = (arr[0][column] galoisMulti 0x09) xor (arr[1][column] galoisMulti 0x0e) xor (arr[2][column] galoisMulti 0x0b) xor (arr[3][column] galoisMulti 0x0d)
+            new[2][column] = (arr[0][column] galoisMulti 0x0d) xor (arr[1][column] galoisMulti 0x09) xor (arr[2][column] galoisMulti 0x0e) xor (arr[3][column] galoisMulti 0x0b)
+            new[3][column] = (arr[0][column] galoisMulti 0x0b) xor (arr[1][column] galoisMulti 0x0d) xor (arr[2][column] galoisMulti 0x09) xor (arr[3][column] galoisMulti 0x0e)
+        }
+        new.copyInto(arr)
+    }
+
+    private fun shiftRows(mes: Array<ByteArray>) {
         for (i in 0..3) {
-            message[i] = message[i].shiftRow(i).copyInto(message[i])
+            mes[i].shiftRow(i).copyInto(mes[i])
+        }
+    }
+
+    private fun invShiftRows(mes: Array<ByteArray>) {
+        for (i in 0..3) {
+            mes[i].invShiftRow(i).copyInto(mes[i])
         }
     }
 
     private fun ByteArray.shiftRow(count: Int) = (this.drop(count) + this.take(count)).toByteArray()
     private fun ByteArray.invShiftRow(count: Int) = (this.takeLast(count) + this.dropLast(count)).toByteArray()
 
-    private fun substitution(stateArray: Array<ByteArray>) {
-        stateArray.forEachIndexed { rowInd, row ->
+    private fun substitution(mes: Array<ByteArray>) {
+        mes.forEachIndexed { rowInd, row ->
             row.forEachIndexed { colInd, elem ->
-                stateArray[rowInd][colInd] = getSubstitutionValue(elem, sBox)
+                mes[rowInd][colInd] = getSubstitutionValue(elem, sBox)
+            }
+        }
+    }
+
+    private fun invSubstitution(mes: Array<ByteArray>) {
+        mes.forEachIndexed { rowInd, row ->
+            row.forEachIndexed { colInd, elem ->
+                mes[rowInd][colInd] = getSubstitutionValue(elem, invSbox)
             }
         }
     }
@@ -221,6 +216,9 @@ class Aes {
     }
 
     private fun Array<ByteArray>.toOneDimensional() = ByteArray(16) { this[it % 4][it / 4] }
+
+    private fun getHexString(mes: Array<ByteArray>) =
+            BitSet.valueOf(mes.toOneDimensional().reversedArray()).toHexString()
 
     private fun getByteArray(str: String): ByteArray {
         val left = str.substring(0..15).toULong(16).toLong()
