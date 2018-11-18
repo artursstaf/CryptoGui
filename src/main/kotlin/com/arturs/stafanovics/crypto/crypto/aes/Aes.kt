@@ -203,11 +203,10 @@ class Aes {
     }
 
     private infix fun Byte.galoisMulti(by: Byte): Byte {
-        var currXTime = this.xTime()
-        val xTimesArr = ByteArray(7) {
-            val toReturn = currXTime
-            currXTime = currXTime.xTime()
-            toReturn
+        val xTimesArr = ByteArray(7)
+        xTimesArr[0] = this.xTime()
+        for(i in 1..6) {
+            xTimesArr[i] = xTimesArr[i-1].xTime()
         }
 
         var sum = if (by.toInt() and 1 == 1) this else 0
