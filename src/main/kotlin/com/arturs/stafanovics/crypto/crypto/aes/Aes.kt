@@ -110,6 +110,7 @@ class Aes {
     private fun getSubKey(previous: Array<ByteArray>, index: Int): Array<ByteArray> {
         val subKey = Array(4) { ByteArray(4) }
         subKeyFillFirstColumn(subKey, previous, index)
+        // Fill rest columns 1-3
         for (col in 1..3) {
             for (row in 0..3) {
                 subKey[row][col] = previous[row][col] xor subKey[row][col - 1]
@@ -203,6 +204,8 @@ class Aes {
     }
 
     private infix fun Byte.galoisMulti(by: Byte): Byte {
+        // Stores left side multiplied by {02} powers, which is multiplying by x
+        // {02}, {04}, {08}, {10} ... {40}
         val xTimesPowers = ByteArray(7)
         xTimesPowers[0] = this.xTime()
         for(i in 1..6) {
@@ -210,6 +213,7 @@ class Aes {
         }
 
         var sum = if (by.toInt() and 1 == 1) this else 0
+        // For each 1 bit in right side + the corresponding x power
         for (i in 1..7) {
             if ((by.toInt() ushr i) and 1 == 1) {
                 sum = sum xor xTimesPowers[i - 1]
@@ -218,6 +222,7 @@ class Aes {
         return sum
     }
 
+    // Multiplication by x in finite field
     private fun Byte.xTime() = ((this.toInt() shl 1) xor ((this.toInt() ushr 7) and 0x1b)).toByte()
 
     private fun ByteArray.toTwoDimensional() = Array(4) { row ->
@@ -229,6 +234,7 @@ class Aes {
     private fun getHexString(mes: Array<ByteArray>) =
             BitSet.valueOf(mes.toOneDimensional().reversedArray()).toHexString()
 
+    // Parse hex string into byte one dimensional byte array
     private fun getByteArray(str: String): ByteArray {
         val left = str.substring(0..15).toULong(16).toLong()
         val right = str.substring(16..31).toULong(16).toLong()
